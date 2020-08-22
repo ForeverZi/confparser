@@ -62,11 +62,11 @@ func NewJSONParser(confDir string) *JSONParser {
 }
 
 //RegisterConfMap 注册指定配置表名称的类型
-func (parser *JSONParser) RegisterConfMap(filename string, confType interface{}, onTableChanged OnTableChanged) {
+func (parser *JSONParser) RegisterConfMap(filename string, confType interface{}, onTableChanged OnTableChanged) (err error) {
 	tableName := parser.getTableName(filename)
 	parser.confType[tableName] = reflect.TypeOf(confType)
 	parser.changeFuncs[tableName] = onTableChanged
-	parser.onConfFileModify(filename)
+	return parser.onConfFileModify(filename)
 }
 
 //Watch 开启监视协程
