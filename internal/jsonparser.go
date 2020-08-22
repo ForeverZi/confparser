@@ -17,8 +17,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"log"
-
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -140,14 +138,14 @@ func (parser *JSONParser) GetRecord(tableName, id string) interface{} {
 
 func (parser *JSONParser) watch() {
 	defer func() {
-		log.Println("结束监听游戏配置")
+		logger.Println("结束监听游戏配置")
 		close(parser.watchEndChan)
 	}()
 	registeredOp := []fsnotify.Op{fsnotify.Create, fsnotify.Write, fsnotify.Rename}
 	for {
 		select {
 		case event, ok := <-parser.watcher.Events:
-			log.Printf("监听到游戏配置变更:%#v\n", event)
+			logger.Printf("监听到游戏配置变更:%#v\n", event)
 			if !ok {
 				parser.watchEndChan <- ErrWatcherAbort
 				return
@@ -156,7 +154,7 @@ func (parser *JSONParser) watch() {
 				if event.Op&targetOp == targetOp {
 					err := parser.onConfFileModify(event.Name)
 					if err != nil && err != ErrUnregisteredTable {
-						log.Printf("更新游戏配置失败:[%#v]event:[%#v]\n", err, event)
+						logger.Printf("更新游戏配置失败:[%#v]event:[%#v]\n", err, event)
 					}
 					break
 				}
@@ -166,7 +164,7 @@ func (parser *JSONParser) watch() {
 				parser.watchEndChan <- ErrWatcherAbort
 				return
 			}
-			log.Printf("游戏配置监听发生错误:[%#v]\n", err)
+			logger.Printf("游戏配置监听发生错误:[%#v]\n", err)
 		}
 	}
 }
@@ -175,7 +173,7 @@ func (parser *JSONParser) readTable(fileName string) (table map[string]interface
 	tableName := parser.getTableName(fileName)
 	confType, ok := parser.confType[tableName]
 	if !ok {
-		log.Printf("没有注册的配置表:[%v]\n", tableName)
+		logger.Printf("没有注册的配置表:[%v]\n", tableName)
 		err = ErrUnregisteredTable
 		return
 	}
@@ -222,7 +220,7 @@ func (parser *JSONParser) getTableName(fileName string) string {
 
 func (parser *JSONParser) onConfFileModify(fileName string) (err error) {
 	tableName := parser.getTableName(fileName)
-	log.Printf("配置变更:[%v]\n", tableName)
+	logger.Printf("配置变更:[%v]\n", tableName)
 	table, err := parser.readTable(filepath.Base(fileName))
 	if err != nil {
 		return

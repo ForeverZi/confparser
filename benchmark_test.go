@@ -9,10 +9,15 @@ package confparser_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"testing"
 
 	"github.com/ForeverZi/confparser"
 )
+
+func init() {
+	confparser.SetLoggerOutput(ioutil.Discard)
+}
 
 func setupParser() confparser.Parser {
 	parser := confparser.NewJSONParser("./conf")
@@ -22,6 +27,7 @@ func setupParser() confparser.Parser {
 
 func BenchmarkExist(b *testing.B) {
 	parser := setupParser()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = parser.Exist("role.json", fmt.Sprint(i))
 	}
@@ -29,6 +35,7 @@ func BenchmarkExist(b *testing.B) {
 
 func BenchmarkGetTable(b *testing.B) {
 	parser := setupParser()
+	b.ResetTimer()
 	var m map[string]interface{}
 	for i := 0; i < b.N; i++ {
 		m = parser.GetTable("role.json")
@@ -38,6 +45,7 @@ func BenchmarkGetTable(b *testing.B) {
 
 func BenchmarkGetRecord(b *testing.B) {
 	parser := setupParser()
+	b.ResetTimer()
 	var role Role
 	for i := 0; i < b.N; i++ {
 		item := parser.GetRecord("role.json", "100")
@@ -48,8 +56,22 @@ func BenchmarkGetRecord(b *testing.B) {
 	_ = role
 }
 
+func BenchmarkGetRecordParalle(b *testing.B) {
+	parser := setupParser()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			item := parser.GetRecord("role.json", "100")
+			if item != nil {
+				_ = item.(Role)
+			}
+		}
+	})
+}
+
 func BenchmarkGetAllItems(b *testing.B) {
 	parser := setupParser()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = parser.GetAllItems("role.json")
 	}

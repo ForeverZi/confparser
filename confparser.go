@@ -1,6 +1,8 @@
 package confparser
 
 import (
+	"io"
+
 	"github.com/ForeverZi/confparser/internal"
 )
 
@@ -33,4 +35,9 @@ type Parser interface {
 //NewJSONParser 新建游戏配置对象
 func NewJSONParser(confDir string) Parser {
 	return internal.NewJSONParser(confDir)
+}
+
+//SetLoggerOutput 设置日志输出
+func SetLoggerOutput(out io.Writer) {
+	internal.SetLoggerOutput(out)
 }
