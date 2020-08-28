@@ -16,7 +16,9 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
+	"github.com/ForeverZi/confparser/pkg/godash"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -38,14 +40,15 @@ type CacheTables = map[string][]interface{}
 
 //JSONParser 支持并发的游戏配置解析器，仅支持第一层级的.json文件
 type JSONParser struct {
-	tables       atomic.Value
-	mutex        sync.Mutex
-	watcher      *fsnotify.Watcher
-	watchEndChan chan error
-	confDir      string
-	confType     map[string]reflect.Type
-	itemsCache   atomic.Value
-	changeFuncs  map[string]OnTableChanged
+	tables         atomic.Value
+	mutex          sync.Mutex
+	watcher        *fsnotify.Watcher
+	watchEndChan   chan error
+	confDir        string
+	confType       map[string]reflect.Type
+	itemsCache     atomic.Value
+	changeFuncs    map[string]OnTableChanged
+	debouncedCache sync.Map
 }
 
 //NewJSONParser 创建方法
@@ -152,10 +155,7 @@ func (parser *JSONParser) watch() {
 			}
 			for _, targetOp := range registeredOp {
 				if event.Op&targetOp == targetOp {
-					err := parser.onConfFileModify(event.Name)
-					if err != nil && err != ErrUnregisteredTable {
-						logger.Printf("更新游戏配置失败:[%#v]event:[%#v]\n", err, event)
-					}
+					parser.debouncedOnConfModify(event.Name)()
 					break
 				}
 			}
@@ -216,6 +216,22 @@ func (parser *JSONParser) getTableName(fileName string) string {
 	fileName = filepath.Base(fileName)
 	tableName := fileName[:len(fileName)-len(filepath.Ext(fileName))]
 	return strings.ToLower(tableName)
+}
+
+func (parser *JSONParser) debouncedOnConfModify(fileName string) godash.Debounced {
+	tableName := parser.getTableName(fileName)
+	item, ok := parser.debouncedCache.Load(tableName)
+	if ok {
+		return item.(godash.Debounced)
+	}
+	debounced, _ := godash.Debounce(func() {
+		err := parser.onConfFileModify(fileName)
+		if err != nil {
+			logger.Printf("更新配置失败,err[%v]\n", err)
+		}
+	}, 2*time.Second, godash.DebounceMaxWaitOption(1*time.Minute))
+	parser.debouncedCache.Store(tableName, debounced)
+	return debounced
 }
 
 func (parser *JSONParser) onConfFileModify(fileName string) (err error) {
